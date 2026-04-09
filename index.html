@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulator AUV 6-DOF & PID Control</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg-main: #030811;
+            --bg-panel: #0B132B;
+            --bg-tile: #1C2541;
+            --accent: #00E5FF;
+            --accent-hover: #00b3cc;
+            --text-main: #FFFFFF;
+            --text-muted: #94A3B8;
+            --border-color: #3A506B;
+            --danger: #FF4757;
+            --warning: #F59E0B;
+            --success: #10B981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        header h1 {
+            color: var(--accent);
+            font-weight: 700;
+            font-size: 28px;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 360px 600px;
+            gap: 20px;
+            background-color: var(--bg-panel);
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid var(--border-color);
+            align-items: start;
+        }
+
+        /* PANEL KIRI: KONTROL */
+        .controls-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 600px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        /* Custom Scrollbar */
+        .controls-panel::-webkit-scrollbar { width: 6px; }
+        .controls-panel::-webkit-scrollbar-track { background: var(--bg-main); border-radius: 10px;}
+        .controls-panel::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px;}
+
+        .control-group {
+            background-color: var(--bg-tile);
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        .control-group h3 {
+            font-size: 13px;
+            color: var(--accent);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+        .btn-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .btn-grid .empty { visibility: hidden; }
+
+        button {
+            background-color: rgba(0, 229, 255, 0.1);
+            border: 1px solid var(--accent);
+            color: var(--text-main);
+            padding: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 600;
+            font-size: 12px;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 5px;
+            user-select: none;
+        }
+
+        button:hover { background-color: rgba(0, 229, 255, 0.3); }
+        button:active, button.active {
+            background-color: var(--accent);
+            color: var(--bg-main);
+            transform: scale(0.95);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            border-color: var(--text-muted);
+            color: var(--text-muted);
+        }
+
+        button.btn-reset {
+            background-color: rgba(255, 71, 87, 0.1);
+            border-color: var(--danger);
+            color: var(--danger);
+            width: 100%;
+            padding: 12px;
+        }
+        button.btn-reset:hover { background-color: var(--danger); color: white; }
+
+        .keyboard-hint {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-align: center;
+            margin-top: 5px;
+        }
+
+        /* PANEL PID KHUSUS */
+        .pid-group {
+            border-color: var(--success);
+            background-color: rgba(16, 185, 129, 0.05);
+        }
+        .pid-group h3 { color: var(--success); }
+        
+        .switch-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        /* Toggle Switch CSS */
+        .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: var(--border-color); transition: .4s; border-radius: 20px;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px;
+            background-color: white; transition: .4s; border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--success); }
+        input:checked + .slider:before { transform: translateX(20px); }
+
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+        .slider-group label {
+            font-size: 11px;
+            display: flex;
+            justify-content: space-between;
+            color: var(--text-muted);
+        }
+        .slider-group span { font-weight: bold; color: var(--text-main); font-family: 'JetBrains Mono', monospace;}
+        
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 14px; width: 14px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            margin-top: -5px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px;
+            cursor: pointer;
+            background: var(--border-color);
+            border-radius: 2px;
+        }
+        .slider-sp-track::-webkit-slider-thumb { background: var(--success) !important; }
+
+        button.btn-disturb {
+            background-color: rgba(245, 158, 11, 0.1);
+            border-color: var(--warning);
+            color: var(--warning);
+            width: 100%;
+        }
+        button.btn-disturb:hover { background-color: var(--warning); color: var(--bg-main); }
+
+        /* PANEL KANAN: CANVAS & TELEMETRI */
+        .view-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .canvas-container {
+            width: 600px;
+            height: 440px;
+            background-color: #041022;
+            border-radius: 12px;
+            border: 2px solid var(--border-color);
+            position: relative;
+            overflow: hidden;
+            background-image: 
+                linear-gradient(rgba(0, 229, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 229, 255, 0.05) 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+
+        canvas { display: block; }
+
+        .telemetry {
+            background-color: var(--bg-tile);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            padding: 15px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .data-box {
+            display: flex;
+            flex-direction: column;
+            background-color: rgba(0,0,0,0.2);
+            padding: 8px;
+            border-radius: 8px;
+            position: relative;
+        }
+
+        .data-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .data-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 18px;
+            color: var(--accent);
+            font-weight: 700;
+        }
+        
+        .pid-indicator {
+            position: absolute;
+            top: 5px; right: 5px;
+            font-size: 8px;
+            background: var(--success);
+            color: white;
+            padding: 2px 4px;
+            border-radius: 4px;
+            display: none;
+        }
+
+        /* Instruksi */
+        .instructions {
+            margin-top: 20px;
+            background-color: var(--bg-tile);
+            padding: 15px 20px;
+            border-radius: 12px;
+            border-left: 4px solid var(--success);
+            max-width: 980px;
+            width: 100%;
+        }
+        
+        .instructions h4 { margin-bottom: 8px; color: var(--success); font-size: 14px;}
+        .instructions p { font-size: 13px; line-height: 1.5; color: var(--text-muted); }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>AUV Full 6-DOF & PID Simulator</h1>
+        <p>Pertemuan 1 - Visualisasi Pergerakan & Pengenalan Tuning Kontroler Otomatis</p>
+    </header>
+
+    <div class="dashboard">
+        <!-- Panel Kontrol Kiri -->
+        <div class="controls-panel">
+            
+            <!-- PANEL PID (BARU) -->
+            <div class="control-group pid-group">
+                <div class="switch-container">
+                    <h3><i class="fa-solid fa-robot"></i> Auto-Heading (PID)</h3>
+                    <label class="switch">
+                        <input type="checkbox" id="pid-toggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                
+                <div id="pid-settings" style="opacity: 0.5; pointer-events: none; transition: 0.3s;">
+                    <div class="slider-group">
+                        <label>🎯 Target Derajat (Setpoint): <span id="val-sp">0°</span></label>
+                        <input type="range" id="slider-sp" class="slider-sp-track" min="0" max="359" value="0">
+                    </div>
+                    <div class="slider-group" style="margin-top: 10px;">
+                        <label>P (Proportional): <span id="val-kp">0.050</span></label>
+                        <input type="range" id="slider-kp" min="0" max="0.2" step="0.001" value="0.05">
+                    </div>
+                    <div class="slider-group">
+                        <label>I (Integral): <span id="val-ki">0.000</span></label>
+                        <input type="range" id="slider-ki" min="0" max="0.01" step="0.0001" value="0.000">
+                    </div>
+                    <div class="slider-group">
+                        <label>D (Derivative): <span id="val-kd">0.500</span></label>
+                        <input type="range" id="slider-kd" min="0" max="2.0" step="0.01" value="0.5">
+                    </div>
+                    
+                    <button class="btn-disturb" id="btn-disturb" style="margin-top: 10px;">
+                        <i class="fa-solid fa-water"></i> Beri Gangguan Arus!
+                    </button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3><i class="fa-solid fa-arrows-up-down-left-right"></i> Translasi X & Y (W A S D)</h3>
+                <div class="btn-grid">
+                    <div class="empty"></div>
+                    <button id="btn-w" data-key="w"><i class="fa-solid fa-arrow-up"></i> Surge+</button>
+                    <div class="empty"></div>
+                    <button id="btn-a" data-key="a"><i class="fa-solid fa-arrow-left"></i> Sway-</button>
+                    <button id="btn-s" data-key="s"><i class="fa-solid fa-arrow-down"></i> Surge-</button>
+                    <button id="btn-d" data-key="d"><i class="fa-solid fa-arrow-right"></i> Sway+</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3><i class="fa-solid fa-rotate"></i> Manual Yaw (Q E)</h3>
+                <div class="btn-grid-2">
+                    <button id="btn-q" data-key="q"><i class="fa-solid fa-rotate-left"></i> Putar Kiri</button>
+                    <button id="btn-e" data-key="e">Putar Kanan <i class="fa-solid fa-rotate-right"></i></button>
+                </div>
+                <div class="keyboard-hint" id="hint-yaw">Dinonaktifkan saat PID menyala</div>
+            </div>
+
+            <div class="control-group">
+                <h3><i class="fa-solid fa-plane"></i> Pitch (R F) & Roll (Z C)</h3>
+                <div class="btn-grid-2">
+                    <button id="btn-r" data-key="r">Pitch Up (R)</button>
+                    <button id="btn-f" data-key="f">Pitch Dn (F)</button>
+                    <button id="btn-z" data-key="z">Roll Kiri (Z)</button>
+                    <button id="btn-c" data-key="c">Roll Kanan (C)</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3><i class="fa-solid fa-arrow-up-right-dots"></i> Heave / Depth (↑ ↓)</h3>
+                <div class="btn-grid-2">
+                    <button id="btn-up" data-key="ArrowUp"><i class="fa-solid fa-arrow-up-from-water-pump"></i> Naik</button>
+                    <button id="btn-down" data-key="ArrowDown"><i class="fa-solid fa-arrow-down-water-pump"></i> Turun</button>
+                </div>
+            </div>
+
+            <button class="btn-reset" id="btn-reset"><i class="fa-solid fa-power-off"></i> Reset Posisi</button>
+
+        </div>
+
+        <!-- Panel Tampilan Kanan -->
+        <div class="view-panel">
+            <div class="canvas-container">
+                <canvas id="poolCanvas" width="600" height="440"></canvas>
+            </div>
+
+            <div class="telemetry">
+                <!-- Baris 1 -->
+                <div class="data-box">
+                    <span class="data-label">Posisi X (Surge)</span>
+                    <span class="data-value" id="data-x">0.00 m</span>
+                </div>
+                <div class="data-box">
+                    <span class="data-label">Posisi Y (Sway)</span>
+                    <span class="data-value" id="data-y">0.00 m</span>
+                </div>
+                <div class="data-box">
+                    <span class="data-label">Kedalaman (Heave)</span>
+                    <span class="data-value" id="data-d">0.50 m</span>
+                </div>
+                <!-- Baris 2 -->
+                <div class="data-box" id="box-yaw" style="border-left: 3px solid var(--accent); transition: 0.3s;">
+                    <div class="pid-indicator" id="pid-badge">PID ON</div>
+                    <span class="data-label">Yaw (Heading)</span>
+                    <span class="data-value" id="data-h">0.0°</span>
+                </div>
+                <div class="data-box">
+                    <span class="data-label">Pitch (Nose Up/Dn)</span>
+                    <span class="data-value" id="data-p">0.0°</span>
+                </div>
+                <div class="data-box">
+                    <span class="data-label">Roll (Bank L/R)</span>
+                    <span class="data-value" id="data-r">0.0°</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="instructions">
+        <h4><i class="fa-solid fa-graduation-cap"></i> Eksperimen PID Tuning (Tugas Motion)</h4>
+        <p>1. Aktifkan saklar <strong>Auto-Heading (PID)</strong>.<br>
+        2. Ubah <strong>Target Derajat</strong> dan perhatikan garis hijau putus-putus. Robot akan otomatis mengejar garis tersebut.<br>
+        3. <strong>P (Proportional)</strong> adalah tenaga tarikan. Jika terlalu besar, robot akan over-shoot (kebablasan) dan bergetar.<br>
+        4. <strong>D (Derivative)</strong> adalah rem/peredam. Gunakan D untuk meredam getaran berlebih dari nilai P.<br>
+        5. Klik <strong>Beri Gangguan Arus</strong> untuk menendang robot, dan lihat bagaimana PID bekerja keras mengembalikannya ke Target!</p>
+    </div>
+
+    <script>
+        // Setup Canvas
+        const canvas = document.getElementById('poolCanvas');
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+
+        // Telemetry DOM Elements
+        const elX = document.getElementById('data-x');
+        const elY = document.getElementById('data-y');
+        const elD = document.getElementById('data-d');
+        const elH = document.getElementById('data-h');
+        const elP = document.getElementById('data-p');
+        const elR = document.getElementById('data-r');
+        
+        // PID DOM Elements
+        const pidToggle = document.getElementById('pid-toggle');
+        const pidSettings = document.getElementById('pid-settings');
+        const sliderSp = document.getElementById('slider-sp');
+        const sliderKp = document.getElementById('slider-kp');
+        const sliderKi = document.getElementById('slider-ki');
+        const sliderKd = document.getElementById('slider-kd');
+        const valSp = document.getElementById('val-sp');
+        const valKp = document.getElementById('val-kp');
+        const valKi = document.getElementById('val-ki');
+        const valKd = document.getElementById('val-kd');
+        const btnDisturb = document.getElementById('btn-disturb');
+        const btnQ = document.getElementById('btn-q');
+        const btnE = document.getElementById('btn-e');
+
+        // AUV State
+        let auv = {
+            x: width / 2,
+            y: height / 2,
+            heading: -Math.PI / 2,
+            depth: 0.5,
+            pitch: 0,
+            roll: 0,
+            width: 30,
+            length: 60,
+            speed: 0.6,       // Dorongan (Thrust linear)
+            rotSpeed: 0.01,   // Torsi manual (Angular Thrust)
+            depthSpeed: 0.01,
+            vx: 0, vy: 0, va: 0 // Inersia (Velocity X, Y, Angular)
+        };
+
+        let particles = []; // Array untuk efek gelembung air (wake)
+
+        // PID Controller State
+        let pid = {
+            active: false,
+            setpointDeg: 0,
+            setpointRad: -Math.PI / 2,
+            kp: 0.05,
+            ki: 0,
+            kd: 0.5,
+            integral: 0,
+            prevError: 0,
+            radarAngle: 0 // Untuk animasi efek radar HUD
+        };
+
+        // Input State
+        const keys = {
+            'w': false, 's': false, 'a': false, 'd': false,
+            'q': false, 'e': false,
+            'r': false, 'f': false,
+            'z': false, 'c': false,
+            'ArrowUp': false, 'ArrowDown': false
+        };
+
+        // --- EVENT LISTENERS ---
+        // PID Toggle
+        pidToggle.addEventListener('change', (e) => {
+            pid.active = e.target.checked;
+            pidSettings.style.opacity = pid.active ? '1' : '0.5';
+            pidSettings.style.pointerEvents = pid.active ? 'auto' : 'none';
+            btnQ.disabled = pid.active; btnE.disabled = pid.active;
+            
+            document.getElementById('pid-badge').style.display = pid.active ? 'block' : 'none';
+            document.getElementById('box-yaw').style.borderColor = pid.active ? 'var(--success)' : 'var(--accent)';
+            document.getElementById('box-yaw').style.backgroundColor = pid.active ? 'rgba(16, 185, 129, 0.1)' : 'rgba(0,0,0,0.2)';
+            
+            if (pid.active) { pid.integral = 0; pid.prevError = 0; }
+        });
+
+        // PID Sliders
+        sliderSp.addEventListener('input', (e) => {
+            pid.setpointDeg = parseInt(e.target.value);
+            valSp.textContent = pid.setpointDeg + "°";
+            pid.setpointRad = (pid.setpointDeg - 90) * Math.PI / 180;
+        });
+        sliderKp.addEventListener('input', (e) => { pid.kp = parseFloat(e.target.value); valKp.textContent = pid.kp.toFixed(3); });
+        sliderKi.addEventListener('input', (e) => { pid.ki = parseFloat(e.target.value); valKi.textContent = pid.ki.toFixed(4); });
+        sliderKd.addEventListener('input', (e) => { pid.kd = parseFloat(e.target.value); valKd.textContent = pid.kd.toFixed(3); });
+
+        // Disturbance Button (Tendangan Fisika)
+        btnDisturb.addEventListener('click', () => {
+            auv.va += (Math.random() - 0.5) * 0.5; // Tendangan rotasi
+            auv.vx += (Math.random() - 0.5) * 15;  // Tendangan arus X
+            auv.vy += (Math.random() - 0.5) * 15;  // Tendangan arus Y
+        });
+
+        // Keyboard & Buttons (Tetap sama logikanya)
+        window.addEventListener('keydown', (e) => {
+            const key = e.key.toLowerCase();
+            if(keys.hasOwnProperty(key)) keys[key] = true;
+            if(keys.hasOwnProperty(e.key)) keys[e.key] = true;
+            highlightButton(e.key, true);
+            if(['ArrowUp', 'ArrowDown'].includes(e.key)) e.preventDefault();
+        });
+        window.addEventListener('keyup', (e) => {
+            const key = e.key.toLowerCase();
+            if(keys.hasOwnProperty(key)) keys[key] = false;
+            if(keys.hasOwnProperty(e.key)) keys[e.key] = false;
+            highlightButton(e.key, false);
+        });
+
+        const buttons = document.querySelectorAll('.btn-grid button, .btn-grid-2 button');
+        buttons.forEach(btn => {
+            const key = btn.getAttribute('data-key');
+            btn.addEventListener('mousedown', () => { keys[key] = true; });
+            btn.addEventListener('mouseup', () => { keys[key] = false; });
+            btn.addEventListener('mouseleave', () => { keys[key] = false; });
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; });
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; });
+        });
+
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            auv.x = width / 2; auv.y = height / 2; auv.heading = -Math.PI / 2;
+            auv.depth = 0.5; auv.pitch = 0; auv.roll = 0;
+            auv.vx = 0; auv.vy = 0; auv.va = 0;
+            pid.integral = 0; pid.prevError = 0;
+            sliderSp.value = 0; pid.setpointDeg = 0; pid.setpointRad = -Math.PI / 2;
+            valSp.textContent = "0°";
+            particles = [];
+        });
+
+        function highlightButton(keyOriginal, isActive) {
+            const key = keyOriginal.length === 1 ? keyOriginal.toLowerCase() : keyOriginal;
+            const btnMap = { 'w': 'btn-w', 's': 'btn-s', 'a': 'btn-a', 'd': 'btn-d', 'q': 'btn-q', 'e': 'btn-e', 'r': 'btn-r', 'f': 'btn-f', 'z': 'btn-z', 'c': 'btn-c', 'ArrowUp': 'btn-up', 'ArrowDown': 'btn-down' };
+            if(btnMap[key]) {
+                const btn = document.getElementById(btnMap[key]);
+                if(isActive) btn.classList.add('active'); else btn.classList.remove('active');
+            }
+        }
+
+        // Fungsi efek partikel (Buble Air Propeler)
+        function spawnParticle(xOffset, yOffset, angleOffset, power, color = 'rgba(255,255,255,0.6)') {
+            if(Math.random() > 0.4) return; // Mengurangi kepadatan partikel
+            const cosH = Math.cos(auv.heading);
+            const sinH = Math.sin(auv.heading);
+            const px = auv.x + (xOffset * cosH - yOffset * sinH);
+            const py = auv.y + (xOffset * sinH + yOffset * cosH);
+            const pAngle = auv.heading + angleOffset + (Math.random() - 0.5)*0.5;
+            
+            particles.push({
+                x: px, y: py,
+                vx: Math.cos(pAngle) * power * (Math.random()+0.5) * 3,
+                vy: Math.sin(pAngle) * power * (Math.random()+0.5) * 3,
+                life: 1.0, maxLife: 0.3 + Math.random()*0.5,
+                color: color, size: 1 + Math.random()*3
+            });
+        }
+
+        // --- MAIN LOOP UPDATE ---
+        function update() {
+            // Fisika: Gesekan Air (Drag) - Bikin gerakan mulus (Inersia)
+            auv.vx *= 0.92; 
+            auv.vy *= 0.92;
+            auv.va *= 0.85; // Damping rotasi (Gesekan rotasional)
+
+            let leftThrust = 0;
+            let rightThrust = 0;
+            let mainThrust = 0;
+
+            // --- PID YAW KONTROLER ---
+            if (pid.active) {
+                let error = pid.setpointRad - auv.heading;
+                while (error > Math.PI) error -= 2 * Math.PI;
+                while (error < -Math.PI) error += 2 * Math.PI;
+
+                pid.integral += error;
+                pid.integral = Math.max(-15, Math.min(15, pid.integral)); // Anti Wind-up
+
+                let derivative = error - pid.prevError;
+
+                // PID menghasilkan TORSI (Gaya Putar), BUKAN memindahkan sudut langsung
+                let output = (pid.kp * error) + (pid.ki * pid.integral) + (pid.kd * derivative);
+                
+                const maxTorque = 0.04;
+                output = Math.max(-maxTorque, Math.min(maxTorque, output));
+
+                auv.va += output; // Torsi ditambah ke kecepatan putar aktual
+                pid.prevError = error;
+
+                // Hitung visual dorongan animasi thruster berdasar output PID
+                if(output < -0.002) { rightThrust = Math.abs(output)*25; leftThrust = -Math.abs(output)*25; }
+                else if(output > 0.002) { leftThrust = Math.abs(output)*25; rightThrust = -Math.abs(output)*25; }
+                
+            } else {
+                // Torsi Manual Q & E
+                if (keys['q']) { auv.va -= auv.rotSpeed; rightThrust = 1; leftThrust = -1; }
+                if (keys['e']) { auv.va += auv.rotSpeed; leftThrust = 1; rightThrust = -1; }
+            }
+
+            auv.heading += auv.va;
+            if (auv.heading > Math.PI * 2) auv.heading -= Math.PI * 2;
+            if (auv.heading < -Math.PI * 2) auv.heading += Math.PI * 2;
+
+            const cosH = Math.cos(auv.heading);
+            const sinH = Math.sin(auv.heading);
+            
+            // Kontrol Translasi menambah Velocity
+            if (keys['w']) { auv.vx += cosH * auv.speed; auv.vy += sinH * auv.speed; mainThrust = 1; }
+            if (keys['s']) { auv.vx -= cosH * auv.speed; auv.vy -= sinH * auv.speed; mainThrust = -1; }
+            if (keys['a']) { auv.vx += Math.cos(auv.heading - Math.PI/2) * auv.speed; auv.vy += Math.sin(auv.heading - Math.PI/2) * auv.speed; }
+            if (keys['d']) { auv.vx += Math.cos(auv.heading + Math.PI/2) * auv.speed; auv.vy += Math.sin(auv.heading + Math.PI/2) * auv.speed; }
+
+            // Update posisi spasial dengan velocity
+            auv.x += auv.vx;
+            auv.y += auv.vy;
+
+            // Memanggil Efek Partikel Thruster
+            if(mainThrust > 0) spawnParticle(-auv.length/2 - 5, 0, Math.PI, mainThrust);
+            if(mainThrust < 0) spawnParticle(auv.length/2 + 5, 0, 0, Math.abs(mainThrust));
+            if(leftThrust > 0) spawnParticle(auv.length/2, -auv.width/2 - 5, Math.PI/2, leftThrust);
+            if(leftThrust < 0) spawnParticle(-auv.length/2, -auv.width/2 - 5, -Math.PI/2, Math.abs(leftThrust));
+            if(rightThrust > 0) spawnParticle(auv.length/2, auv.width/2 + 5, -Math.PI/2, rightThrust);
+            if(rightThrust < 0) spawnParticle(-auv.length/2, auv.width/2 + 5, Math.PI/2, Math.abs(rightThrust));
+
+            // Kedalaman (Heave)
+            if (keys['ArrowUp']) auv.depth = Math.max(0, auv.depth - auv.depthSpeed);
+            if (keys['ArrowDown']) auv.depth = Math.min(3, auv.depth + auv.depthSpeed);
+
+            // Pitch & Roll (Efek Auto level memantul pelan)
+            if (keys['r']) auv.pitch = Math.min(45, auv.pitch + 1);
+            if (keys['f']) auv.pitch = Math.max(-45, auv.pitch - 1);
+            if (keys['z']) auv.roll = Math.max(-45, auv.roll - 1);
+            if (keys['c']) auv.roll = Math.min(45, auv.roll + 1);
+            if (!keys['r'] && !keys['f']) auv.pitch *= 0.92;
+            if (!keys['z'] && !keys['c']) auv.roll *= 0.92;
+
+            // Boundary Layar (Memantul sedikit di pinggir seperti nabrak tembok kolam)
+            if (auv.x < auv.length/2) { auv.x = auv.length/2; auv.vx *= -0.5; }
+            if (auv.x > width - auv.length/2) { auv.x = width - auv.length/2; auv.vx *= -0.5; }
+            if (auv.y < auv.length/2) { auv.y = auv.length/2; auv.vy *= -0.5; }
+            if (auv.y > height - auv.length/2) { auv.y = height - auv.length/2; auv.vy *= -0.5; }
+
+            // Update siklus hidup Particles
+            for(let i=particles.length-1; i>=0; i--) {
+                let p = particles[i];
+                p.x += p.vx; p.y += p.vy;
+                p.life -= 0.02;
+                if(p.life <= 0) particles.splice(i, 1);
+            }
+
+            pid.radarAngle += 0.08; // Animasi denyut radar
+            updateTelemetry();
+        }
+
+        function draw() {
+            // Bersihkan Canvas (Warna Kolam)
+            ctx.fillStyle = '#041022';
+            ctx.fillRect(0, 0, width, height);
+            
+            // Gambar Partikel Buble di Air (Dilukis di bawah robot)
+            particles.forEach(p => {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size * (p.life/p.maxLife), 0, Math.PI*2);
+                ctx.fillStyle = p.color.replace('0.6', (p.life*0.5).toFixed(2));
+                ctx.fill();
+            });
+
+            // Animasi HUD PID Setpoint (Mirip Radar)
+            if (pid.active) {
+                ctx.save();
+                ctx.translate(auv.x, auv.y);
+                
+                let error = pid.setpointRad - auv.heading;
+                while (error > Math.PI) error -= 2 * Math.PI;
+                while (error < -Math.PI) error += 2 * Math.PI;
+
+                // Warna HUD Dinamis: Hijau jika stabil, Oranye jika meleset, Merah jika kacau balau
+                let hudColor = Math.abs(error) < 0.15 ? '16, 185, 129' : (Math.abs(error) < 0.6 ? '245, 158, 11' : '239, 68, 68');
+
+                // Lingkaran Sektor Error Margin (Sapu Bersih)
+                ctx.beginPath();
+                ctx.arc(0, 0, 75, auv.heading, auv.heading + error, error < 0);
+                ctx.lineTo(0,0);
+                ctx.fillStyle = `rgba(${hudColor}, 0.15)`;
+                ctx.fill();
+
+                // Garis Target Lurus
+                ctx.rotate(pid.setpointRad);
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(130, 0);
+                ctx.strokeStyle = `rgba(${hudColor}, 0.8)`;
+                ctx.lineWidth = 2;
+                ctx.setLineDash([8, 8]);
+                ctx.stroke();
+
+                // Lingkaran Denyut Ujung Target
+                ctx.beginPath();
+                ctx.arc(130, 0, 4 + Math.sin(pid.radarAngle)*2, 0, Math.PI*2); // Efek Pulsing
+                ctx.fillStyle = `rgba(${hudColor}, 1)`;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = `rgba(${hudColor}, 1)`;
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            ctx.save();
+            ctx.translate(auv.x, auv.y);
+            ctx.rotate(auv.heading);
+
+            // Scale untuk efek kedalaman
+            const depthFactor = 1 - (auv.depth / 6); 
+            ctx.scale(depthFactor, depthFactor);
+
+            // 1. Gambar Hull AUV (Desain Sleek dengan Gradient Metalik)
+            const hullGrad = ctx.createLinearGradient(0, -auv.width/2, 0, auv.width/2);
+            hullGrad.addColorStop(0, pid.active ? '#059669' : '#008b99');
+            hullGrad.addColorStop(0.5, pid.active ? '#10B981' : '#00E5FF');
+            hullGrad.addColorStop(1, pid.active ? '#059669' : '#008b99');
+
+            ctx.shadowBlur = pid.active ? 20 : 10;
+            ctx.shadowColor = pid.active ? `rgba(16, 185, 129, ${0.8 - (auv.depth/4)})` : `rgba(0, 229, 255, ${0.6 - (auv.depth/4)})`;
+            
+            ctx.fillStyle = hullGrad;
+            ctx.beginPath();
+            ctx.roundRect(-auv.length/2, -auv.width/2, auv.length, auv.width, 8);
+            ctx.fill();
+            ctx.shadowBlur = 0; // Matikan shadow untuk detail selanjutnya
+
+            // 2. Kaca Kamera Depan (Dome Transparan)
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.arc(auv.length/2 - 2, 0, auv.width/2 - 6, -Math.PI/2, Math.PI/2);
+            ctx.fill();
+            
+            // Lensa Kamera Merah Berpendar
+            ctx.fillStyle = '#FF4757';
+            ctx.shadowBlur = 5;
+            ctx.shadowColor = '#FF4757';
+            ctx.beginPath();
+            ctx.arc(auv.length/2, 0, 3, 0, Math.PI*2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // 3. Sayap / Mount Thruster
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(-15, -auv.width/2 - 5, 25, 5); // Kiri
+            ctx.fillRect(-15, auv.width/2, 25, 5);      // Kanan
+
+            // 4. MENGGAMBAR MINI ARTIFICIAL HORIZON
+            ctx.save();
+            ctx.rotate(-Math.PI/2);
+            
+            ctx.beginPath();
+            ctx.arc(0, 0, 10, 0, Math.PI*2);
+            ctx.clip();
+            
+            const pitchOffset = auv.pitch * 0.25; 
+            ctx.rotate(-auv.roll * Math.PI / 180);
+            
+            ctx.fillStyle = '#3498db'; // Langit Biru
+            ctx.fillRect(-15, -15 + pitchOffset, 30, 30);
+            
+            ctx.fillStyle = '#8B4513'; // Tanah Coklat
+            ctx.fillRect(-15, pitchOffset, 30, 15 - pitchOffset);
+            
+            ctx.strokeStyle = '#fff'; // Garis Cakrawala
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(-15, pitchOffset);
+            ctx.lineTo(15, pitchOffset);
+            ctx.stroke();
+            
+            ctx.restore();
+            
+            // Frame Instrumen Horizon
+            ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(0, 0, 10, 0, Math.PI*2);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function updateTelemetry() {
+            const meterX = ((auv.x - width/2) / 50).toFixed(2);
+            const meterY = (-(auv.y - height/2) / 50).toFixed(2); 
+            
+            let degH = (auv.heading * 180 / Math.PI) + 90;
+            if (degH < 0) degH += 360;
+            if (degH >= 360) degH -= 360;
+
+            elX.textContent = meterX + " m";
+            elY.textContent = meterY + " m";
+            elD.textContent = auv.depth.toFixed(2) + " m";
+            elH.textContent = degH.toFixed(1) + "°";
+            elP.textContent = Math.round(auv.pitch) + "°";
+            elR.textContent = Math.round(auv.roll) + "°";
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        // Start Simulator
+        loop();
+
+    </script>
+</body>
+</html>
